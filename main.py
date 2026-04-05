@@ -67,34 +67,16 @@ async def verify_payment(data: PaymentRequest):
 
     try:
         payment_id = data.payment_id
-        email = data.email
-        name = data.name
 
-        # 🔐 Verify with Razorpay
+        # Verify with Razorpay
         payment = client.payment.fetch(payment_id)
 
         if payment["status"] != "captured":
             return {"status": "failed", "message": "Payment not captured"}
 
-        # Generate license
-        license_key = generate_license_key()
-
-        # Hash
-        license_hash = hash_license(license_key)
-
-        # Store in Supabase
-        supabase.table("licenses").insert({
-            "activation_code_hash": license_hash,
-            "email": email,
-            "name": name,
-            "license_type": "full",
-            "status": "unused",
-            "issued_at": datetime.utcnow().isoformat()
-        }).execute()
-
         return {
             "status": "success",
-            "license_key": license_key
+            "message": "Payment verified"
         }
 
     except Exception as e:
