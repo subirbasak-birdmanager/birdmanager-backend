@@ -82,15 +82,17 @@ async def verify_payment(data: PaymentRequest):
     except Exception as e:
         return {"status": "error", "message": str(e)}
         
+from fastapi import Request
+
 @app.post("/webhook")
 async def razorpay_webhook(request: Request):
 
     body = await request.body()
     signature = request.headers.get("X-Razorpay-Signature")
 
-    secret = os.getenv("RAZORPAY_WEBHOOK_SECRET")
+    secret = os.getenv("birdmanager_secret_123")
 
-    # 🔐 Verify signature
+    # Verify signature
     generated_signature = hmac.new(
         secret.encode(),
         body,
@@ -101,24 +103,19 @@ async def razorpay_webhook(request: Request):
         return {"status": "invalid signature"}
 
     data = await request.json()
-
     event = data.get("event")
 
     if event == "payment.captured":
-
-        payment = data["payload"]["payment"]["entity"]
-
-        email = payment.get("email", "")
-        name = payment.get("notes", {}).get("name", "User")
 
         # Generate license
         license_key = generate_license_key()
         license_hash = hash_license(license_key)
 
+        # Store WITHOUT email/name
         supabase.table("licenses").insert({
             "activation_code_hash": license_hash,
-            "email": email,
-            "name": name,
+            "email": "",
+            "name": "",
             "license_type": "full",
             "status": "unused",
             "issued_at": datetime.utcnow().isoformat()
