@@ -10,10 +10,17 @@ import hashlib
 from datetime import datetime
 import hmac
 import hashlib
-
+from fastapi.middleware.cors import CORSMiddleware
 load_dotenv()
 
 app = FastAPI()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Razorpay client
 client = razorpay.Client(auth=(
@@ -90,7 +97,7 @@ async def razorpay_webhook(request: Request):
     body = await request.body()
     signature = request.headers.get("X-Razorpay-Signature")
 
-    secret = os.getenv("birdmanager_secret_123")
+    secret = os.getenv("RAZORPAY_WEBHOOK_SECRET")
 
     # Verify signature
     generated_signature = hmac.new(
