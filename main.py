@@ -91,19 +91,43 @@ async def verify_payment(data: PaymentRequest):
         
 from fastapi import Request
 
-@app.get("/test-webhook")
-def test_webhook():
+@app.post("/webhook")
+async def razorpay_webhook(request: Request):
 
-    license_key = generate_license_key()
-    license_hash = hash_license(license_key)
+    print("🔥 WEBHOOK HIT 🔥")
 
-    supabase.table("licenses").insert({
-        "activation_code_hash": license_hash,
-        "email": "",
-        "name": "",
-        "license_type": "full",
-        "status": "unused",
-        "issued_at": datetime.utcnow().isoformat()
-    }).execute()
+    body = await request.body()
+    signature = request.headers.get("X-Razorpay-Signature")
 
-    return {"status": "ok", "license": license_key}
+    secret = os.getenv("RAZORPAY_WEBHOOK_SECRET")
+
+    generated_signature = hmac.new(
+        secret.encode(),
+        body,
+        hashlib.sha256
+    ).hexdigest()
+
+    if not hmac.compare_digest(generated_signature, signature):
+        print("❌ INVALID SIGNATURE")
+        return {"status": "invalid signature"}
+
+    data = await request.json()
+    print("Webhook data:", data)
+
+    if data.get("event") == "payment.captured":
+
+        license_key = generate_license_key()
+        license_hash = hash_license(license_key)
+
+        supabase.table("licenses").insert({
+            "activation_code_hash": license_hash,
+            "email": "",
+            "name": "",
+            "license_type": "full",
+            "status": "unused",
+            "issued_at": datetime.utcnow().isoformat()
+        }).execute()
+
+        print("✅ LICENSE CREATED:", license_key)
+
+    return {"status": "ok"}
