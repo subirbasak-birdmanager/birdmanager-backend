@@ -77,18 +77,24 @@ def test_webhook():
 
 @app.post("/create-order")
 async def create_order():
-    try:
-        order = client.order.create({
-            "amount": 299900,
-            "currency": "INR",
-            "payment_capture": 1
-        })
 
-        return {"status": "success", "order_id": order["id"]}
+    for attempt in range(3):  # retry 3 times
+        try:
+            order = client.order.create({
+                "amount": 299900,
+                "currency": "INR",
+                "payment_capture": 1
+            })
 
-    except Exception as e:
-        print("❌ ORDER ERROR:", str(e))
-        return {"status": "error", "message": str(e)}
+            return {
+                "status": "success",
+                "order_id": order["id"]
+            }
+
+        except Exception as e:
+            print(f"❌ ORDER ERROR (attempt {attempt+1}):", str(e))
+
+    return {"status": "error", "message": "Failed after retries"}
 
 
 @app.post("/verify-payment")
