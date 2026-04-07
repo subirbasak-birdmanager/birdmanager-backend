@@ -10,7 +10,7 @@ import hashlib
 from datetime import datetime
 import hmac
 from fastapi.middleware.cors import CORSMiddleware
-
+from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
 load_dotenv()
 
 app = FastAPI()
@@ -21,6 +21,16 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+)
+conf = ConnectionConfig(
+    MAIL_USERNAME=os.getenv("MAIL_USERNAME"),
+    MAIL_PASSWORD=os.getenv("MAIL_PASSWORD"),
+    MAIL_FROM=os.getenv("MAIL_FROM"),
+    MAIL_PORT=int(os.getenv("MAIL_PORT")),
+    MAIL_SERVER=os.getenv("MAIL_SERVER"),
+    MAIL_STARTTLS=True,
+    MAIL_SSL_TLS=False,
+    USE_CREDENTIALS=True
 )
 
 # Razorpay client
@@ -105,11 +115,26 @@ async def verify_payment(data: PaymentRequest):
         if payment["status"] != "captured":
             return {"status": "failed"}
 
-        return {"status": "success"}
+        # Generate license AGAIN for frontend display
+        license_key = generate_license_key()
+        license_hash = hash_license(license_key)
+
+        supabase.table("licenses").insert({
+            "activation_code_hash": license_hash,
+            "email": "",
+            "name": "",
+            "license_type": "full",
+            "status": "unused",
+            "issued_at": datetime.utcnow().isoformat()
+        }).execute()
+
+        return {
+            "status": "success",
+            "license_key": license_key
+        }
 
     except Exception as e:
         return {"status": "error", "message": str(e)}
-
 
 @app.post("/webhook")
 async def razorpay_webhook(request: Request):
@@ -138,6 +163,11 @@ async def razorpay_webhook(request: Request):
 
     if data.get("event") == "payment.captured":
 
+        payment = data["payload"]["payment"]["entity"]
+
+        email = payment.get("email", "")
+        name = payment.get("notes", {}).get("name", "")
+
         license_key = generate_license_key()
         license_hash = hash_license(license_key)
 
@@ -152,4 +182,29 @@ async def razorpay_webhook(request: Request):
 
         print("✅ LICENSE CREATED:", license_key)
 
-    return {"status": "ok"}
+        # ✅ SEND EMAIL
+        if email:
+            await send_license_email(email, license_key)
+            print("📧 Email sent to:", email)
+    
+async def send_license_email(email: str, license_key: str):
+
+    message = MessageSchema(
+        subject="Your Bird Manager Pro License",
+        recipients=[email],
+        body=f"""
+Thank you for your purchase!
+
+Your License Key:
+{license_key}
+
+Keep this safe.
+
+- Bird Manager Pro
+""",
+        subtype="plain"
+    )
+
+    fm = FastMail(conf)
+    await fm.send_message(message)
+    
