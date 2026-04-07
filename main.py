@@ -154,9 +154,13 @@ async def razorpay_webhook(request: Request):
 
         payment = data["payload"]["payment"]["entity"]
 
+        # ✅ Get email safely
         email = payment.get("email")
-        if not email:
-            email = payment.get("contact", "")
+
+        # ✅ Validate email (must contain @)
+        if not email or "@" not in email:
+            print("⚠️ Invalid or missing email")
+            email = None
 
         license_key = generate_license_key()
         license_hash = hash_license(license_key)
