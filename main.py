@@ -115,22 +115,11 @@ async def verify_payment(data: PaymentRequest):
         if payment["status"] != "captured":
             return {"status": "failed"}
 
-        # Generate license AGAIN for frontend display
-        license_key = generate_license_key()
-        license_hash = hash_license(license_key)
-
-        supabase.table("licenses").insert({
-            "activation_code_hash": license_hash,
-            "email": "",
-            "name": "",
-            "license_type": "full",
-            "status": "unused",
-            "issued_at": datetime.utcnow().isoformat()
-        }).execute()
+        # ✅ Do NOT create license here
+        # License is created via webhook
 
         return {
-            "status": "success",
-            "license_key": license_key
+            "status": "success"
         }
 
     except Exception as e:
@@ -165,8 +154,9 @@ async def razorpay_webhook(request: Request):
 
         payment = data["payload"]["payment"]["entity"]
 
-        email = payment.get("email", "")
-        name = payment.get("notes", {}).get("name", "")
+        email = payment.get("email")
+        if not email:
+            email = payment.get("contact", "")
 
         license_key = generate_license_key()
         license_hash = hash_license(license_key)
@@ -182,10 +172,11 @@ async def razorpay_webhook(request: Request):
 
         print("✅ LICENSE CREATED:", license_key)
 
-        # ✅ SEND EMAIL
         if email:
             await send_license_email(email, license_key)
             print("📧 Email sent to:", email)
+
+    return {"status": "ok"}
     
 async def send_license_email(email: str, license_key: str):
 
@@ -193,15 +184,20 @@ async def send_license_email(email: str, license_key: str):
         subject="Your Bird Manager Pro License",
         recipients=[email],
         body=f"""
-Thank you for your purchase!
+        Thank you for purchasing Bird Manager Pro.
 
-Your License Key:
-{license_key}
+        Your License Key:
+        {license_key}
 
-Keep this safe.
+        Payment Details:
+        - Product: Bird Manager Pro
+        - Amount: ₹2999
+        - Date: {datetime.utcnow().strftime("%Y-%m-%d")}
 
-- Bird Manager Pro
-""",
+        Please keep this email for your records.
+
+        Bird Manager Pro
+        """,
         subtype="plain"
     )
 
