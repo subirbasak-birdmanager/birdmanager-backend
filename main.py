@@ -26,16 +26,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-conf = ConnectionConfig(
-    MAIL_USERNAME=os.getenv("MAIL_USERNAME"),
-    MAIL_PASSWORD=os.getenv("MAIL_PASSWORD"),
-    MAIL_FROM=os.getenv("MAIL_FROM"),
-    MAIL_PORT=int(os.getenv("MAIL_PORT")),
-    MAIL_SERVER=os.getenv("MAIL_SERVER"),
-    MAIL_STARTTLS=True,
-    MAIL_SSL_TLS=False,
-    USE_CREDENTIALS=True
-)
+
 
 # Razorpay client
 client = razorpay.Client(auth=(
@@ -184,29 +175,5 @@ async def razorpay_webhook(request: Request):
         print("📧 Email sending skipped (temporary)")
     return {"status": "ok"}
     
-async def send_license_email(email: str, license_key: str):
 
-    message = MessageSchema(
-        subject="Your Bird Manager Pro License",
-        recipients=[email],
-        body=f"""
-        Thank you for purchasing Bird Manager Pro.
-
-        Your License Key:
-        {license_key}
-
-        Payment Details:
-        - Product: Bird Manager Pro
-        - Amount: ₹2999
-        - Date: {datetime.utcnow().strftime("%Y-%m-%d")}
-
-        Please keep this email for your records.
-
-        Bird Manager Pro
-        """,
-        subtype="plain"
-    )
-
-    fm = FastMail(conf)
-    await fm.send_message(message)
     
