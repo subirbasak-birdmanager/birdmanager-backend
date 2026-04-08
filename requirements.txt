@@ -3,4 +3,3 @@ uvicorn
 razorpay
 python-dotenv
 supabase
-fastapi-mail
