@@ -10,7 +10,7 @@ import hashlib
 from datetime import datetime
 import hmac
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
+
 load_dotenv()
 
 app = FastAPI()
