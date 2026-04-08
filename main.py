@@ -181,14 +181,7 @@ async def razorpay_webhook(request: Request):
 
         print("✅ LICENSE CREATED:", license_key)
 
-        # ✅ SAFE EMAIL SENDING (VERY IMPORTANT)
-        try:
-            if email:
-                await send_license_email(email, license_key)
-                print("📧 Email sent to:", email)
-        except Exception as e:
-            print("❌ Email failed:", str(e))
-
+        print("📧 Email sending skipped (temporary)")
     return {"status": "ok"}
     
 async def send_license_email(email: str, license_key: str):
