@@ -10,7 +10,7 @@ import hashlib
 from datetime import datetime
 import hmac
 from fastapi.middleware.cors import CORSMiddleware
-
+import resend
 load_dotenv()
 
 app = FastAPI()
@@ -56,6 +56,29 @@ def generate_license_key():
         ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
         for _ in range(4)
     )
+
+# ✅ ADD HERE (exact place)
+def send_email(to_email, license_key):
+
+    resend.api_key = os.getenv("RESEND_API_KEY")
+
+    try:
+        resend.Emails.send({
+            "from": "Bird Manager Pro <mail@subirbasak.com>",
+            "to": [to_email],
+            "subject": "Your Bird Manager Pro License",
+            "html": f"""
+            <h2>Thank you for your purchase!</h2>
+            <p>Your license key:</p>
+            <h1>{license_key}</h1>
+            <p>Please keep this key safe.</p>
+            """
+        })
+
+        print("📧 Email sent to:", to_email)
+
+    except Exception as e:
+        print("❌ Email failed:", str(e))
 
 # ✅ TEST ENDPOINT
 @app.get("/test-webhook")
@@ -161,5 +184,10 @@ async def razorpay_webhook(request: Request):
         }).execute()
 
         print("✅ LICENSE CREATED:", license_key)
+        if email:
+            try:
+                send_email(email, license_key)
+            except Exception as e:
+                print("❌ Email error:", str(e))
 
     return {"status": "ok"}
