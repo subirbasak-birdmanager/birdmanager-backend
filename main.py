@@ -15,10 +15,7 @@ load_dotenv()
 
 app = FastAPI()
 
-@app.get("/")
-def home():
-    return {"status": "running"}
-
+# ✅ CORS FIRST
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -27,6 +24,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ✅ HEALTH CHECK (IMPORTANT)
+@app.api_route("/", methods=["GET", "HEAD"])
+def home():
+    return {"status": "running"}
 
 # Razorpay client
 client = razorpay.Client(auth=(
@@ -34,20 +35,21 @@ client = razorpay.Client(auth=(
     os.getenv("RAZORPAY_KEY_SECRET")
 ))
 
+# Supabase
 supabase = create_client(
     os.getenv("SUPABASE_URL"),
     os.getenv("SUPABASE_KEY")
 )
 
+# Request model
 class PaymentRequest(BaseModel):
     payment_id: str
     email: str
     name: str
 
-
+# Utils
 def hash_license(license_key: str):
     return hashlib.sha256(license_key.encode()).hexdigest()
-
 
 def generate_license_key():
     return "-".join(
@@ -55,16 +57,9 @@ def generate_license_key():
         for _ in range(4)
     )
 
-
-@app.get("/")
-def home():
-    return {"message": "Backend is running"}
-
-
-# ✅ TEST ENDPOINT (VERY IMPORTANT)
+# ✅ TEST ENDPOINT
 @app.get("/test-webhook")
 def test_webhook():
-
     license_key = generate_license_key()
     license_hash = hash_license(license_key)
 
@@ -79,11 +74,10 @@ def test_webhook():
 
     return {"status": "ok", "license": license_key}
 
-
+# ✅ CREATE ORDER
 @app.post("/create-order")
 async def create_order():
-
-    for attempt in range(3):  # retry 3 times
+    for attempt in range(3):
         try:
             order = client.order.create({
                 "amount": 1000,
@@ -101,7 +95,7 @@ async def create_order():
 
     return {"status": "error", "message": "Failed after retries"}
 
-
+# ✅ VERIFY PAYMENT
 @app.post("/verify-payment")
 async def verify_payment(data: PaymentRequest):
     try:
@@ -110,16 +104,12 @@ async def verify_payment(data: PaymentRequest):
         if payment["status"] != "captured":
             return {"status": "failed"}
 
-        # ✅ Do NOT create license here
-        # License is created via webhook
-
-        return {
-            "status": "success"
-        }
+        return {"status": "success"}
 
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
+# ✅ WEBHOOK (CORE LOGIC)
 @app.post("/webhook")
 async def razorpay_webhook(request: Request):
 
@@ -127,10 +117,9 @@ async def razorpay_webhook(request: Request):
 
     body = await request.body()
     signature = request.headers.get("X-Razorpay-Signature")
-
     secret = os.getenv("RAZORPAY_WEBHOOK_SECRET")
 
-    # 🟡 Allow manual testing (no signature)
+    # Verify signature (skip if testing)
     if signature:
         generated_signature = hmac.new(
             secret.encode(),
@@ -142,22 +131,23 @@ async def razorpay_webhook(request: Request):
             print("❌ INVALID SIGNATURE")
             return {"status": "invalid signature"}
 
-    data = await request.json()
+    try:
+        data = await request.json()
+    except Exception:
+        return {"status": "invalid json"}
+
     print("Webhook data:", data)
 
     if data.get("event") == "payment.captured":
 
         payment = data["payload"]["payment"]["entity"]
 
-        # ✅ Get email safely
         email = payment.get("email")
 
-        # ✅ Validate email
         if not email or "@" not in email:
-            print("⚠️ Invalid or missing email")
+            print("⚠️ Invalid email")
             email = None
 
-        # ✅ Generate license
         license_key = generate_license_key()
         license_hash = hash_license(license_key)
 
@@ -172,8 +162,4 @@ async def razorpay_webhook(request: Request):
 
         print("✅ LICENSE CREATED:", license_key)
 
-        print("📧 Email sending skipped (temporary)")
     return {"status": "ok"}
-    
-
-    
