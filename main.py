@@ -198,10 +198,8 @@ async def razorpay_webhook(request: Request):
 
         payment = data["payload"]["payment"]["entity"]
 
-        # ✅ STEP 2 — GET PAYMENT ID
         payment_id = payment.get("id")
 
-        # ✅ CHECK DUPLICATE (VERY IMPORTANT)
         existing = supabase.table("licenses") \
             .select("*") \
             .eq("payment_id", payment_id) \
@@ -220,23 +218,31 @@ async def razorpay_webhook(request: Request):
         license_key = generate_license_key()
         license_hash = hash_license(license_key)
 
+        name = payment.get("notes", {}).get("name", "")
+
+        if not payment_id:
+            print("❌ Missing payment_id")
+            return {"status": "error"}
+
         supabase.table("licenses").insert({
             "activation_code_hash": license_hash,
-            "email": "",
-            "name": "",
+            "email": email or "",
+            "name": name,
             "license_type": "full",
             "status": "unused",
-            "payment_id": payment_id,   
+            "payment_id": payment_id,
             "issued_at": datetime.utcnow().isoformat()
         }).execute()
 
         print("✅ LICENSE CREATED:", license_key)
+
         if email:
             try:
-                send_email(email, license_key)
+                send_email(email, license_key, payment_id)
             except Exception as e:
                 print("❌ Email error:", str(e))
 
+    # ✅ ALWAYS OUTSIDE
     return {"status": "ok"}
     
 @app.post("/activate")
