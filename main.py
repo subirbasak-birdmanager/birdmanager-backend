@@ -218,7 +218,12 @@ async def razorpay_webhook(request: Request):
         license_key = generate_license_key()
         license_hash = hash_license(license_key)
 
-        name = payment.get("notes", {}).get("name", "")
+        notes = payment.get("notes")
+
+        if isinstance(notes, dict):
+            name = notes.get("name", "")
+        else:
+            name = ""
 
         if not payment_id:
             print("❌ Missing payment_id")
