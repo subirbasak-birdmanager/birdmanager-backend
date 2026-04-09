@@ -208,3 +208,48 @@ async def razorpay_webhook(request: Request):
                 print("❌ Email error:", str(e))
 
     return {"status": "ok"}
+    
+@app.post("/activate")
+async def activate_license(data: dict):
+
+    license_key = data.get("license_key")
+    machine_hash = data.get("machine_hash")
+
+    if not license_key or not machine_hash:
+        return {"status": "error"}
+
+    license_hash = hash_license(license_key)
+
+    result = supabase.table("licenses") \
+        .select("*") \
+        .eq("activation_code_hash", license_hash) \
+        .execute()
+
+    if not result.data:
+        return {"status": "invalid"}
+
+    license_data = result.data[0]
+
+    # ✅ CHECK STATUS
+    if license_data["status"] not in ["unused", "active"]:
+        return {"status": "blocked"}
+
+    stored_machine = license_data.get("bound_machine_hash")
+
+    # ✅ FIRST ACTIVATION
+    if not stored_machine:
+
+        supabase.table("licenses").update({
+            "bound_machine_hash": machine_hash,
+            "status": "active",
+            "activated_at": datetime.utcnow().isoformat()
+        }).eq("activation_code_hash", license_hash).execute()
+
+        return {"status": "activated"}
+
+    # ✅ SAME MACHINE
+    if stored_machine == machine_hash:
+        return {"status": "active"}
+
+    # ❌ DIFFERENT MACHINE
+    return {"status": "blocked"}
