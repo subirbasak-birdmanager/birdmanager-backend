@@ -142,17 +142,20 @@ async def razorpay_webhook(request: Request):
     signature = request.headers.get("X-Razorpay-Signature")
     secret = os.getenv("RAZORPAY_WEBHOOK_SECRET")
 
-    # Verify signature (skip if testing)
-    if signature:
-        generated_signature = hmac.new(
-            secret.encode(),
-            body,
-            hashlib.sha256
-        ).hexdigest()
+    # ✅ STRICT VERIFICATION (NEW)
+    if not signature:
+        print("❌ Missing signature")
+        return {"status": "error"}
 
-        if not hmac.compare_digest(generated_signature, signature):
-            print("❌ INVALID SIGNATURE")
-            return {"status": "invalid signature"}
+    expected_signature = hmac.new(
+        secret.encode(),
+        body,
+        hashlib.sha256
+    ).hexdigest()
+
+    if not hmac.compare_digest(expected_signature, signature):
+        print("❌ Invalid signature")
+        return {"status": "invalid"}
 
     try:
         data = await request.json()
@@ -164,6 +167,19 @@ async def razorpay_webhook(request: Request):
     if data.get("event") == "payment.captured":
 
         payment = data["payload"]["payment"]["entity"]
+
+        # ✅ STEP 2 — GET PAYMENT ID
+        payment_id = payment.get("id")
+
+        # ✅ CHECK DUPLICATE (VERY IMPORTANT)
+        existing = supabase.table("licenses") \
+            .select("*") \
+            .eq("payment_id", payment_id) \
+            .execute()
+
+        if existing.data:
+            print("⚠️ Duplicate webhook ignored")
+            return {"status": "duplicate"}
 
         email = payment.get("email")
 
@@ -180,6 +196,7 @@ async def razorpay_webhook(request: Request):
             "name": "",
             "license_type": "full",
             "status": "unused",
+            "payment_id": payment_id,   
             "issued_at": datetime.utcnow().isoformat()
         }).execute()
 
