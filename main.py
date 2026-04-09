@@ -48,8 +48,12 @@ class PaymentRequest(BaseModel):
     name: str
 
 # Utils
+def normalize_license_key(key: str):
+    return key.replace("-", "").replace(" ", "").upper()
+
 def hash_license(license_key: str):
-    return hashlib.sha256(license_key.encode()).hexdigest()
+    normalized = normalize_license_key(license_key)
+    return hashlib.sha256(normalized.encode()).hexdigest()
 
 def generate_license_key():
     return "-".join(
@@ -58,21 +62,47 @@ def generate_license_key():
     )
 
 # ✅ ADD HERE (exact place)
-def send_email(to_email, license_key):
+def send_email(to_email, license_key, payment_id):
 
     resend.api_key = os.getenv("RESEND_API_KEY")
 
     try:
+        html = f"""
+        <div style="font-family: Arial, sans-serif; max-width:600px; margin:auto; border:1px solid #eee; padding:20px;">
+
+            <h2 style="color:#2c3e50;">Bird Manager Pro</h2>
+            <hr>
+
+            <p>Thank you for your purchase!</p>
+
+            <h3>🧾 Order Details</h3>
+            <p><strong>Product:</strong> Bird Manager Pro (Full License)</p>
+            <p><strong>Amount:</strong> ₹2999</p>
+            <p><strong>Payment ID:</strong> {payment_id}</p>
+
+            <h3>🔑 Your License Key</h3>
+            <div style="background:#f4f4f4; padding:15px; font-size:18px; letter-spacing:2px;">
+                {license_key}
+            </div>
+
+            <p style="margin-top:20px;">
+                Please keep this key safe. You will need it to activate your software.
+            </p>
+
+            <hr>
+
+            <p style="font-size:12px; color:gray;">
+                This is an automated email. Do not reply.
+            </p>
+
+        </div>
+        """
+
         resend.Emails.send({
             "from": "Bird Manager Pro <mail@subirbasak.com>",
             "to": [to_email],
             "subject": "Your Bird Manager Pro License",
-            "html": f"""
-            <h2>Thank you for your purchase!</h2>
-            <p>Your license key:</p>
-            <h1>{license_key}</h1>
-            <p>Please keep this key safe.</p>
-            """
+            "html": html
         })
 
         print("📧 Email sent to:", to_email)
