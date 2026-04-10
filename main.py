@@ -60,6 +60,9 @@ def generate_license_key():
         ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
         for _ in range(4)
     )
+    
+def verify_admin(secret: str):
+    return secret == os.getenv("ADMIN_SECRET")
 
 # ✅ ADD HERE (exact place)
 def send_email(to_email, license_key, payment_id):
@@ -231,6 +234,7 @@ async def razorpay_webhook(request: Request):
 
         supabase.table("licenses").insert({
             "activation_code_hash": license_hash,
+            "license_key": license_key,
             "email": email or "",
             "name": name,
             "license_type": "full",
@@ -294,3 +298,48 @@ async def activate_license(data: dict):
 
     # ❌ DIFFERENT MACHINE
     return {"status": "blocked"}
+    
+@app.get("/admin/licenses")
+async def get_licenses(secret: str):
+
+    if not verify_admin(secret):
+        return {"status": "unauthorized"}
+
+    data = supabase.table("licenses") \
+        .select("*") \
+        .order("issued_at", desc=True) \
+        .limit(100) \
+        .execute()
+
+    return {"status": "ok", "data": data.data}
+    
+@app.post("/admin/revoke")
+async def revoke_license(data: dict):
+
+    if not verify_admin(data.get("secret")):
+        return {"status": "unauthorized"}
+
+    supabase.table("licenses").update({
+        "status": "revoked"
+    }).eq("payment_id", data.get("payment_id")).execute()
+
+    return {"status": "revoked"}
+    
+@app.post("/admin/resend")
+async def resend_license(data: dict):
+
+    if not verify_admin(data.get("secret")):
+        return {"status": "unauthorized"}
+
+    result = supabase.table("licenses") \
+        .select("*") \
+        .eq("payment_id", data.get("payment_id")) \
+        .execute()
+
+    if not result.data:
+        return {"status": "not_found"}
+
+    row = result.data[0]
+
+    # ⚠️ You CANNOT recover original key from hash
+    return {"status": "not_possible", "message": "Store raw key if you want resend"}
