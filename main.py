@@ -313,6 +313,19 @@ async def get_licenses(secret: str):
 
     return {"status": "ok", "data": data.data}
     
+@app.get("/admin/search")
+async def search_licenses(query: str, secret: str):
+
+    if not verify_admin(secret):
+        return {"status": "unauthorized"}
+
+    data = supabase.table("licenses") \
+        .select("*") \
+        .ilike("email", f"%{query}%") \
+        .execute()
+
+    return {"status": "ok", "data": data.data}
+    
 @app.post("/admin/revoke")
 async def revoke_license(data: dict):
 
