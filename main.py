@@ -363,5 +363,14 @@ async def resend_license(data: dict):
 
     row = result.data[0]
 
-    # ⚠️ You CANNOT recover original key from hash
-    return {"status": "not_possible", "message": "Store raw key if you want resend"}
+    email = row.get("email")
+    license_key = row.get("license_key")
+
+    if not email or not license_key:
+        return {"status": "missing_data"}
+
+    try:
+        send_email(email, license_key, row.get("payment_id"))
+        return {"status": "sent"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
