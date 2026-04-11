@@ -62,7 +62,12 @@ def generate_license_key():
     )
     
 def verify_admin(secret: str):
-    return secret == os.getenv("ADMIN_SECRET")
+    env_secret = os.getenv("ADMIN_SECRET") or ""
+
+    print("INPUT:", repr(secret))
+    print("ENV:", repr(env_secret))
+
+    return secret.strip() == env_secret.strip()
 
 # ✅ ADD HERE (exact place)
 def send_email(to_email, license_key, payment_id):
@@ -300,7 +305,7 @@ async def activate_license(data: dict):
     return {"status": "blocked"}
     
 @app.get("/admin/licenses")
-async def get_licenses(secret: str):
+async def get_licenses(secret: str = ""):
 
     if not verify_admin(secret):
         return {"status": "unauthorized"}
@@ -314,7 +319,7 @@ async def get_licenses(secret: str):
     return {"status": "ok", "data": data.data}
     
 @app.get("/admin/search")
-async def search_licenses(query: str, secret: str):
+async def search_licenses(query: str, secret: str = ""):
 
     if not verify_admin(secret):
         return {"status": "unauthorized"}
