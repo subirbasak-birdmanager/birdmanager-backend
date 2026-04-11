@@ -326,7 +326,11 @@ async def search_licenses(query: str, secret: str = ""):
 
     data = supabase.table("licenses") \
         .select("*") \
-        .ilike("email", f"%{query}%") \
+        .or_(
+            f"email.ilike.%{query}%,"
+            f"payment_id.ilike.%{query}%,"
+            f"license_key.ilike.%{query}%"
+        ) \
         .execute()
 
     return {"status": "ok", "data": data.data}
