@@ -1,4 +1,6 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+
 import razorpay
 import os
 from dotenv import load_dotenv
@@ -9,11 +11,20 @@ from supabase import create_client
 import hashlib
 from datetime import datetime
 import hmac
-from fastapi.middleware.cors import CORSMiddleware
 import resend
+import jwt
+
+
 load_dotenv()
 
 app = FastAPI()
+
+# ---------- PASSWORD FUNCTIONS ----------
+def hash_password(password: str) -> str:
+    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+
+def verify_password(password: str, hashed: str) -> bool:
+    return bcrypt.checkpw(password.encode(), hashed.encode())
 
 # ✅ CORS FIRST
 app.add_middleware(
@@ -29,6 +40,7 @@ app.add_middleware(
 def home():
     return {"status": "running"}
 
+SECRET_KEY = os.getenv("SECRET_KEY", "dev_secret_key")
 # Razorpay client
 client = razorpay.Client(auth=(
     os.getenv("RAZORPAY_KEY_ID"),
@@ -63,10 +75,6 @@ def generate_license_key():
     
 def verify_admin(secret: str):
     env_secret = os.getenv("ADMIN_SECRET") or ""
-
-    print("INPUT:", repr(secret))
-    print("ENV:", repr(env_secret))
-
     return secret.strip() == env_secret.strip()
 
 # ✅ ADD HERE (exact place)
@@ -305,10 +313,12 @@ async def activate_license(data: dict):
     return {"status": "blocked"}
     
 @app.get("/admin/licenses")
-async def get_licenses(secret: str = ""):
+async def get_licenses(request: Request):
 
-    if not verify_admin(secret):
-        return {"status": "unauthorized"}
+    token = request.headers.get("Authorization")
+
+    if not token or not verify_token(token):
+        raise HTTPException(status_code=401, detail="Unauthorized")
 
     data = supabase.table("licenses") \
         .select("*") \
@@ -374,3 +384,38 @@ async def resend_license(data: dict):
         return {"status": "sent"}
     except Exception as e:
         return {"status": "error", "message": str(e)}
+        
+# ---------- LOGIN REQUEST MODEL ----------
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+# ---------- LOGIN API ----------
+@app.post("/admin/login")
+async def admin_login(data: LoginRequest):
+    email = data.email
+    password = data.password
+
+    # ✅ TEMP (simple + stable)
+    ADMIN_EMAIL = "admin@sbaviary.com"
+    ADMIN_PASSWORD = "123456"
+
+    if email != ADMIN_EMAIL or password != ADMIN_PASSWORD:
+        raise HTTPException(status_code=401, detail="Invalid login")
+
+    token = jwt.encode({
+        "email": email,
+        "exp": datetime.utcnow().timestamp() + (12 * 60 * 60)
+    }, SECRET_KEY, algorithm="HS256")
+
+    return {"token": token}
+
+
+# ---------- TOKEN VERIFY ----------
+def verify_token(token: str):
+    try:
+        jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+        return True
+    except:
+        return False
