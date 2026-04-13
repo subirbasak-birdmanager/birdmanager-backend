@@ -329,10 +329,12 @@ async def get_licenses(request: Request):
     return {"status": "ok", "data": data.data}
     
 @app.get("/admin/search")
-async def search_licenses(query: str, secret: str = ""):
+async def search_licenses(query: str, request: Request):
 
-    if not verify_admin(secret):
-        return {"status": "unauthorized"}
+    token = request.headers.get("Authorization")
+
+    if not token or not verify_token(token):
+        raise HTTPException(status_code=401, detail="Unauthorized")
 
     data = supabase.table("licenses") \
         .select("*") \
