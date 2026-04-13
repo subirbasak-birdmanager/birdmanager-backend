@@ -348,10 +348,12 @@ async def search_licenses(query: str, request: Request):
     return {"status": "ok", "data": data.data}
     
 @app.post("/admin/revoke")
-async def revoke_license(data: dict):
+async def revoke_license(data: dict, request: Request):
 
-    if not verify_admin(data.get("secret")):
-        return {"status": "unauthorized"}
+    token = request.headers.get("Authorization")
+
+    if not token or not verify_token(token):
+        raise HTTPException(status_code=401, detail="Unauthorized")
 
     supabase.table("licenses").update({
         "status": "revoked"
@@ -360,10 +362,12 @@ async def revoke_license(data: dict):
     return {"status": "revoked"}
     
 @app.post("/admin/resend")
-async def resend_license(data: dict):
+async def resend_license(data: dict, request: Request):
 
-    if not verify_admin(data.get("secret")):
-        return {"status": "unauthorized"}
+    token = request.headers.get("Authorization")
+
+    if not token or not verify_token(token):
+        raise HTTPException(status_code=401, detail="Unauthorized")
 
     result = supabase.table("licenses") \
         .select("*") \
