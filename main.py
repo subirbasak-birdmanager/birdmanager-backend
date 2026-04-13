@@ -73,9 +73,6 @@ def generate_license_key():
         for _ in range(4)
     )
     
-def verify_admin(secret: str):
-    env_secret = os.getenv("ADMIN_SECRET") or ""
-    return secret.strip() == env_secret.strip()
 
 # ✅ ADD HERE (exact place)
 def send_email(to_email, license_key, payment_id):
