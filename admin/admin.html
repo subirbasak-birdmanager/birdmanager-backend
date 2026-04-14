@@ -263,11 +263,10 @@ async function login() {
 
     if (data.token) {
 		localStorage.setItem("admin_token", data.token);
+		localStorage.setItem("admin_email", email);
 		document.getElementById("userEmail").innerText = email;
 		alert("Login success");
-	} else {
-        alert("Login failed");
-    }
+	}
 }
 
 function getStatusBadge(status) {
@@ -311,6 +310,11 @@ function renderTable(rows) {
 async function load() {
     const token = localStorage.getItem("admin_token");
 
+    if (!token) {
+        alert("Please login first");
+        return;
+    }
+
     const res = await fetch(`${base}/admin/licenses`, {
         headers: {
             "Authorization": token
@@ -327,21 +331,26 @@ async function load() {
 }
 
 async function search() {
-    
+
     const query = document.getElementById("search").value.trim();
 
-    lastQuery = query; // ✅ store last search
+    lastQuery = query;
 
     const token = localStorage.getItem("admin_token");
 
-	const res = await fetch(
-		`${base}/admin/search?query=${encodeURIComponent(query)}`,
-		{
-			headers: {
-				"Authorization": token
-			}
-		}
-	);
+    if (!token) {
+        alert("Please login first");
+        return;
+    }
+
+    const res = await fetch(
+        `${base}/admin/search?query=${encodeURIComponent(query)}`,
+        {
+            headers: {
+                "Authorization": token
+            }
+        }
+    );
 
     const data = await res.json();
 
@@ -397,9 +406,29 @@ async function resend(payment_id) {
 
 function logout() {
     localStorage.removeItem("admin_token");
+
+    // clear table
+    document.querySelector("#table tbody").innerHTML = "";
+
+    // reset count
+    document.getElementById("count").innerText = "0";
+
+    // reset user label
     document.getElementById("userEmail").innerText = "Not logged in";
+
     alert("Logged out");
 }
+window.onload = function () {
+    const token = localStorage.getItem("admin_token");
+    const email = localStorage.getItem("admin_email");
+
+    if (token) {
+        document.getElementById("userEmail").innerText = email || "Logged in";
+        load();
+    } else {
+        document.getElementById("userEmail").innerText = "Not logged in";
+    }
+};
 </script>
 
 </body>

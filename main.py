@@ -9,10 +9,10 @@ import random
 import string
 from supabase import create_client
 import hashlib
-from datetime import datetime
 import hmac
 import resend
 import jwt
+from datetime import datetime, timedelta
 
 
 load_dotenv()
@@ -403,16 +403,18 @@ async def admin_login(data: LoginRequest):
     email = data.email
     password = data.password
 
-    # ✅ TEMP (simple + stable)
-    ADMIN_EMAIL = "admin@sbaviary.com"
-    ADMIN_PASSWORD = "123456"
+    ADMIN_EMAIL = os.getenv("ADMIN_EMAIL")
+    ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
+
+    if not ADMIN_EMAIL or not ADMIN_PASSWORD:
+        raise HTTPException(status_code=500, detail="Server config error")
 
     if email != ADMIN_EMAIL or password != ADMIN_PASSWORD:
         raise HTTPException(status_code=401, detail="Invalid login")
 
     token = jwt.encode({
         "email": email,
-        "exp": datetime.utcnow().timestamp() + (12 * 60 * 60)
+        "exp": datetime.utcnow() + timedelta(hours=12)
     }, SECRET_KEY, algorithm="HS256")
 
     return {"token": token}
@@ -423,5 +425,7 @@ def verify_token(token: str):
     try:
         jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
         return True
-    except:
+    except jwt.ExpiredSignatureError:
+        return False
+    except jwt.InvalidTokenError:
         return False
