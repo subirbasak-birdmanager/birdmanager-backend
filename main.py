@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-
+from fastapi.responses import FileResponse
 import razorpay
 import os
 from dotenv import load_dotenv
@@ -46,6 +46,9 @@ client = razorpay.Client(auth=(
     os.getenv("RAZORPAY_KEY_ID"),
     os.getenv("RAZORPAY_KEY_SECRET")
 ))
+@app.get("/admin")
+async def admin_panel():
+    return FileResponse("admin/admin.html")
 
 # Supabase
 supabase = create_client(
