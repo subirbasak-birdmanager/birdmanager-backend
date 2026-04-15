@@ -253,20 +253,30 @@ async function login() {
     const email = document.getElementById("email").value;
     const password = document.getElementById("password").value;
 
-    const res = await fetch(`${base}/admin/login`, {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({ email, password })
-    });
+    try {
+        const res = await fetch(`${base}/admin/login`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ email, password })
+        });
 
-    const data = await res.json();
+        const data = await res.json();
 
-    if (data.token) {
-		localStorage.setItem("admin_token", data.token);
-		localStorage.setItem("admin_email", email);
-		document.getElementById("userEmail").innerText = email;
-		alert("Login success");
-	}
+        if (res.ok && data.token) {
+            localStorage.setItem("admin_token", data.token);
+            localStorage.setItem("admin_email", email);
+            document.getElementById("userEmail").innerText = email;
+            alert("Login success");
+        } else {
+            alert(data.detail || "Login failed");
+        }
+
+    } catch (err) {
+        console.error(err);
+        alert("Network error");
+    }
 }
 
 function getStatusBadge(status) {
@@ -406,14 +416,10 @@ async function resend(payment_id) {
 
 function logout() {
     localStorage.removeItem("admin_token");
+    localStorage.removeItem("admin_email");
 
-    // clear table
     document.querySelector("#table tbody").innerHTML = "";
-
-    // reset count
     document.getElementById("count").innerText = "0";
-
-    // reset user label
     document.getElementById("userEmail").innerText = "Not logged in";
 
     alert("Logged out");
