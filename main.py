@@ -15,6 +15,7 @@ import jwt
 from datetime import datetime, timedelta
 import bcrypt
 FAILED_ATTEMPTS = {}
+BLOCKED_UNTIL = {}
 load_dotenv()
 
 app = FastAPI()
@@ -409,26 +410,41 @@ async def admin_login(data: LoginRequest):
     # simple user key (single admin)
     user_key = "admin"
 
-    # 🚫 block after 5 attempts
-    if FAILED_ATTEMPTS.get(user_key, 0) >= 5:
-        raise HTTPException(status_code=429, detail="Too many attempts. Try later.")
+    # ⛔ check if currently blocked
+    if user_key in BLOCKED_UNTIL:
+        if datetime.utcnow() < BLOCKED_UNTIL[user_key]:
+            raise HTTPException(status_code=429, detail="Too many attempts. Try later.")
+        else:
+            # auto-unlock after time passed
+            FAILED_ATTEMPTS[user_key] = 0
+            del BLOCKED_UNTIL[user_key]
 
     # check env exists
     if not ADMIN_EMAIL or not ADMIN_PASSWORD_HASH:
         raise HTTPException(status_code=500, detail="Server config error")
 
-    # check email
+    # ❌ wrong email
     if email != ADMIN_EMAIL:
         FAILED_ATTEMPTS[user_key] = FAILED_ATTEMPTS.get(user_key, 0) + 1
+
+        if FAILED_ATTEMPTS[user_key] >= 5:
+            BLOCKED_UNTIL[user_key] = datetime.utcnow() + timedelta(minutes=10)
+
         raise HTTPException(status_code=401, detail="Invalid login")
 
-    # check password
+    # ❌ wrong password
     if not bcrypt.checkpw(password.encode(), ADMIN_PASSWORD_HASH.encode()):
         FAILED_ATTEMPTS[user_key] = FAILED_ATTEMPTS.get(user_key, 0) + 1
+
+        if FAILED_ATTEMPTS[user_key] >= 5:
+            BLOCKED_UNTIL[user_key] = datetime.utcnow() + timedelta(minutes=10)
+
         raise HTTPException(status_code=401, detail="Invalid login")
 
-    # ✅ success → reset attempts
+    # ✅ success → reset everything
     FAILED_ATTEMPTS[user_key] = 0
+    if user_key in BLOCKED_UNTIL:
+        del BLOCKED_UNTIL[user_key]
 
     # create token
     token = jwt.encode({
