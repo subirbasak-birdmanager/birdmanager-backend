@@ -406,17 +406,29 @@ async def admin_login(data: LoginRequest):
     ADMIN_EMAIL = os.getenv("ADMIN_EMAIL")
     ADMIN_PASSWORD_HASH = os.getenv("ADMIN_PASSWORD_HASH")
 
+    # simple user key (single admin)
+    user_key = "admin"
+
+    # 🚫 block after 5 attempts
+    if FAILED_ATTEMPTS.get(user_key, 0) >= 5:
+        raise HTTPException(status_code=429, detail="Too many attempts. Try later.")
+
     # check env exists
     if not ADMIN_EMAIL or not ADMIN_PASSWORD_HASH:
         raise HTTPException(status_code=500, detail="Server config error")
 
     # check email
     if email != ADMIN_EMAIL:
+        FAILED_ATTEMPTS[user_key] = FAILED_ATTEMPTS.get(user_key, 0) + 1
         raise HTTPException(status_code=401, detail="Invalid login")
 
-    # check password (bcrypt)
+    # check password
     if not bcrypt.checkpw(password.encode(), ADMIN_PASSWORD_HASH.encode()):
+        FAILED_ATTEMPTS[user_key] = FAILED_ATTEMPTS.get(user_key, 0) + 1
         raise HTTPException(status_code=401, detail="Invalid login")
+
+    # ✅ success → reset attempts
+    FAILED_ATTEMPTS[user_key] = 0
 
     # create token
     token = jwt.encode({
