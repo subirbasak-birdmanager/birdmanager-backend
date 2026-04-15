@@ -4,3 +4,4 @@ razorpay
 python-dotenv
 supabase
 resend
+bcrypt
