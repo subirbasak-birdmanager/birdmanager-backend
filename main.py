@@ -13,8 +13,8 @@ import hmac
 import resend
 import jwt
 from datetime import datetime, timedelta
-
-
+import bcrypt
+FAILED_ATTEMPTS = {}
 load_dotenv()
 
 app = FastAPI()
@@ -404,14 +404,21 @@ async def admin_login(data: LoginRequest):
     password = data.password
 
     ADMIN_EMAIL = os.getenv("ADMIN_EMAIL")
-    ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
+    ADMIN_PASSWORD_HASH = os.getenv("ADMIN_PASSWORD_HASH")
 
-    if not ADMIN_EMAIL or not ADMIN_PASSWORD:
+    # check env exists
+    if not ADMIN_EMAIL or not ADMIN_PASSWORD_HASH:
         raise HTTPException(status_code=500, detail="Server config error")
 
-    if email != ADMIN_EMAIL or password != ADMIN_PASSWORD:
+    # check email
+    if email != ADMIN_EMAIL:
         raise HTTPException(status_code=401, detail="Invalid login")
 
+    # check password (bcrypt)
+    if not bcrypt.checkpw(password.encode(), ADMIN_PASSWORD_HASH.encode()):
+        raise HTTPException(status_code=401, detail="Invalid login")
+
+    # create token
     token = jwt.encode({
         "email": email,
         "exp": datetime.utcnow() + timedelta(hours=12)
