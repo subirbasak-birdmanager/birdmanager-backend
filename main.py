@@ -150,7 +150,7 @@ async def create_order():
     for attempt in range(3):
         try:
             order = client.order.create({
-                "amount": 1000,
+                "amount": 299900,
                 "currency": "INR",
                 "payment_capture": 1
             })
