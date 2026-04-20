@@ -30,7 +30,7 @@ def verify_password(password: str, hashed: str) -> bool:
 # ✅ CORS FIRST
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["https://birdmanagerpro.subirbasak.com"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -148,7 +148,7 @@ async def create_order():
     for attempt in range(3):
         try:
             order = client.order.create({
-                "amount": 1000,
+                "amount": 499900,
                 "currency": "INR",
                 "payment_capture": 1
             })
