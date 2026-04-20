@@ -60,8 +60,6 @@ supabase = create_client(
 # Request model
 class PaymentRequest(BaseModel):
     payment_id: str
-    email: str
-    name: str
 
 # Utils
 def normalize_license_key(key: str):
