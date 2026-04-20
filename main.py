@@ -150,7 +150,7 @@ async def create_order():
     for attempt in range(3):
         try:
             order = client.order.create({
-                "amount": 299900,
+                "amount": 1000,
                 "currency": "INR",
                 "payment_capture": 1
             })
@@ -226,7 +226,7 @@ async def razorpay_webhook(request: Request):
             print("⚠️ Duplicate webhook ignored")
             return {"status": "duplicate"}
 
-        email = payment.get("email")
+        email = payment.get("email") or payment.get("contact")
 
         if not email or "@" not in email:
             print("⚠️ Invalid email")
