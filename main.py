@@ -27,10 +27,13 @@ def hash_password(password: str) -> str:
 def verify_password(password: str, hashed: str) -> bool:
     return bcrypt.checkpw(password.encode(), hashed.encode())
 
-# ✅ CORS FIRST
+# ✅ CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://birdmanagerpro.subirbasak.com"],
+    allow_origins=[
+        "https://birdmanagerpro.subirbasak.com",
+        "https://birdmanager-backend.onrender.com"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
