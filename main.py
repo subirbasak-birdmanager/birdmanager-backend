@@ -20,6 +20,18 @@ load_dotenv()
 
 app = FastAPI()
 
+# ✅ CORS FIRST
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "https://birdmanager-backend.onrender.com",
+        "https://birdmanagerpro.subirbasak.com"
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 # ---------- PASSWORD FUNCTIONS ----------
 def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
@@ -27,17 +39,7 @@ def hash_password(password: str) -> str:
 def verify_password(password: str, hashed: str) -> bool:
     return bcrypt.checkpw(password.encode(), hashed.encode())
 
-# ✅ CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "https://birdmanagerpro.subirbasak.com",
-        "https://birdmanager-backend.onrender.com"
-    ],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+
 
 # ✅ HEALTH CHECK (IMPORTANT)
 @app.api_route("/", methods=["GET", "HEAD"])
